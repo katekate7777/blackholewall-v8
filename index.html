@@ -1,0 +1,432 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Black Hole Shout Wall</title>
+    <script src="https://cdn.pubnub.com/sdk/javascript/pubnub.4.29.9.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body {
+            height: 100%;
+            overflow: hidden;
+            background: #0a0a0f;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .header {
+            text-align: center;
+            padding: 6px 10px;
+            flex-shrink: 0;
+        }
+        h1 {
+            font-size: 1.1rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .subtitle {
+            font-size: 0.6rem;
+            color: #6b6b8b;
+            margin-top: 2px;
+        }
+        
+        .identity-section {
+            text-align: center;
+            padding: 4px 10px;
+            flex-shrink: 0;
+        }
+        .identity-label {
+            color: #8b8bab;
+            font-size: 0.6rem;
+            margin-bottom: 4px;
+        }
+        .identity-options {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+        .identity-btn {
+            font-size: 1.2rem;
+            background: rgba(20, 20, 40, 0.8);
+            border: 1.5px solid rgba(102, 126, 234, 0.3);
+            border-radius: 8px;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            filter: grayscale(0.5);
+        }
+        .identity-btn.selected {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.2);
+            filter: grayscale(0);
+        }
+
+        .holes-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding: 6px 10px;
+            overflow: hidden;
+        }
+        .hole {
+            flex: 1;
+            min-height: 0;
+            background: radial-gradient(ellipse at center, 
+                rgba(30, 30, 60, 0.8) 0%, 
+                rgba(10, 10, 20, 0.95) 100%);
+            border-radius: 10px;
+            border: 1px solid rgba(102, 126, 234, 0.25);
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            position: relative;
+            gap: 10px;
+        }
+        .hole.active {
+            border-color: rgba(102, 126, 234, 0.6);
+        }
+        .hole.vanishing {
+            animation: suckIn 0.6s ease-in forwards;
+        }
+        
+        .hole-identity {
+            font-size: 1.3rem;
+            flex-shrink: 0;
+        }
+        .hole-number {
+            position: absolute;
+            top: 4px;
+            right: 8px;
+            font-size: 0.55rem;
+            color: #4a4a6a;
+        }
+        .hole-content {
+            flex: 1;
+            font-size: 0.9rem;
+            color: #e0e0ff;
+            word-break: break-word;
+            line-height: 1.3;
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+        }
+        .hole-timer {
+            font-size: 0.75rem;
+            color: #667eea;
+            font-weight: bold;
+            flex-shrink: 0;
+            min-width: 45px;
+            text-align: right;
+        }
+        .hole-empty {
+            color: #3a3a5a;
+            font-style: italic;
+            font-size: 0.8rem;
+        }
+
+        .input-section {
+            padding: 8px 10px;
+            background: rgba(20, 20, 40, 0.8);
+            border-top: 1px solid rgba(102, 126, 234, 0.2);
+            flex-shrink: 0;
+        }
+        .input-wrapper {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .shout-input {
+            flex: 1;
+            padding: 12px 15px;
+            font-size: 1rem;
+            border: 1.5px solid rgba(102, 126, 234, 0.4);
+            border-radius: 25px;
+            background: rgba(10, 10, 20, 0.9);
+            color: #fff;
+            outline: none;
+        }
+        .shout-input:focus {
+            border-color: #667eea;
+        }
+        .shout-btn {
+            padding: 12px 20px;
+            font-size: 0.9rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+        }
+
+        .status {
+            text-align: center;
+            padding: 4px;
+            color: #4a4a6a;
+            font-size: 0.55rem;
+            flex-shrink: 0;
+        }
+        
+        @keyframes suckIn {
+            to { transform: scaleX(0) rotate(360deg); opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🕳️ Black Hole Shout Wall</h1>
+        <div class="subtitle">Shout into the void. 30s later, swallowed by the universe.</div>
+    </div>
+
+    <div class="identity-section">
+        <div class="identity-label">Choose Your Identity</div>
+        <div class="identity-options">
+            <button class="identity-btn selected" onclick="selectIdentity('👤', this)">👤</button>
+            <button class="identity-btn" onclick="selectIdentity('🤖', this)">🤖</button>
+            <button class="identity-btn" onclick="selectIdentity('👽', this)">👽</button>
+            <button class="identity-btn" onclick="selectIdentity('🦾', this)">🦾</button>
+            <button class="identity-btn" onclick="selectIdentity('⭐️', this)">⭐️</button>
+        </div>
+    </div>
+
+    <div class="holes-container" id="holesContainer"></div>
+
+    <div class="input-section">
+        <div class="input-wrapper">
+            <input type="text" class="shout-input" id="shoutInput" 
+                   placeholder="Shout into the void..." maxlength="80">
+            <button class="shout-btn" id="shoutBtn" onclick="shout()">🚀</button>
+        </div>
+    </div>
+
+    <div class="status" id="status">Loading...</div>
+
+    <script>
+        // PubNub 配置
+        const pubnub = new PubNub({
+            publishKey: "pub-c-7e7d5c4a-6f3a-4b7e-9c8d-1a2b3c4d5e6f",
+            subscribeKey: "sub-c-8f8e7d6c-5b4a-3a9b-8c7d-2e3f4a5b6c7d",
+            uuid: 'user_' + Math.random().toString(36).substr(2, 9)
+        });
+
+        const userId = pubnub.getUUID();
+        let myIdentity = '👤';
+
+        // 订阅频道
+        pubnub.subscribe({
+            channels: ['blackhole-room']
+        });
+
+        // 监听消息
+        pubnub.addListener({
+            message: (event) => {
+                const data = event.message;
+                if (data.userId !== userId) {
+                    receiveShout(data);
+                }
+            }
+        });
+
+        const holes = Array(6).fill(null).map((_, i) => ({
+            id: i,
+            content: null,
+            identity: null,
+            timestamp: 0,
+            userId: null,
+            interval: null
+        }));
+
+        function selectIdentity(identity, btn) {
+            myIdentity = identity;
+            document.querySelectorAll('.identity-btn').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+        }
+
+        function findEmptyHole() {
+            return holes.findIndex(h => !h.content && !h.timestamp);
+        }
+
+        function renderHoles() {
+            const container = document.getElementById('holesContainer');
+            container.innerHTML = '';
+            
+            holes.forEach((hole, idx) => {
+                const el = document.createElement('div');
+                el.className = 'hole' + (hole.content ? ' active' : '');
+                el.id = 'hole-' + idx;
+                
+                const numEl = document.createElement('div');
+                numEl.className = 'hole-number';
+                numEl.textContent = '#' + (idx + 1);
+                el.appendChild(numEl);
+
+                if (hole.identity) {
+                    const identityEl = document.createElement('div');
+                    identityEl.className = 'hole-identity';
+                    identityEl.textContent = hole.identity;
+                    el.appendChild(identityEl);
+                }
+
+                if (hole.content) {
+                    const content = document.createElement('div');
+                    content.className = 'hole-content';
+                    content.textContent = hole.content;
+                    el.appendChild(content);
+                    
+                    const timer = document.createElement('div');
+                    timer.className = 'hole-timer';
+                    timer.id = 'timer-' + idx;
+                    timer.textContent = getRemainingTime(hole.timestamp) + 's';
+                    el.appendChild(timer);
+                } else {
+                    const empty = document.createElement('div');
+                    empty.className = 'hole-empty';
+                    empty.textContent = 'Void...';
+                    el.appendChild(empty);
+                }
+                
+                container.appendChild(el);
+            });
+        }
+
+        function getRemainingTime(timestamp) {
+            if (!timestamp) return '0.0';
+            const elapsed = (Date.now() - timestamp) / 1000;
+            return Math.max(0, 30 - elapsed).toFixed(1);
+        }
+
+        function shout() {
+            const input = document.getElementById('shoutInput');
+            const msg = input.value.trim();
+            
+            if (!msg) {
+                input.focus();
+                return;
+            }
+            
+            const emptyIdx = findEmptyHole();
+            let targetIdx;
+            
+            if (emptyIdx === -1) {
+                const oldestIdx = holes.reduce((oldest, h, idx) => 
+                    h.timestamp < holes[oldest].timestamp ? idx : oldest, 0);
+                
+                if (holes[oldestIdx].interval) {
+                    clearInterval(holes[oldestIdx].interval);
+                }
+                targetIdx = oldestIdx;
+            } else {
+                targetIdx = emptyIdx;
+            }
+            
+            // 本地显示
+            fillHole(targetIdx, msg, userId, myIdentity);
+            
+            // 广播给所有人（不管是否连接成功都尝试发送）
+            pubnub.publish({
+                channel: 'blackhole-room',
+                message: {
+                    holeIdx: targetIdx,
+                    userId: userId,
+                    identity: myIdentity,
+                    content: msg,
+                    timestamp: Date.now()
+                }
+            }, (status, response) => {
+                if (status.error) {
+                    console.log('Send failed:', status);
+                }
+            });
+            
+            input.value = '';
+            input.blur();
+        }
+
+        function receiveShout(data) {
+            let idx = data.holeIdx;
+            
+            if (holes[idx].content && holes[idx].timestamp > 0) {
+                const emptyIdx = findEmptyHole();
+                if (emptyIdx !== -1) {
+                    idx = emptyIdx;
+                } else {
+                    idx = holes.reduce((oldest, h, i) => 
+                        h.timestamp < holes[oldest].timestamp ? i : oldest, 0);
+                    if (holes[idx].interval) clearInterval(holes[idx].interval);
+                }
+            }
+            
+            fillHole(idx, data.content, data.userId, data.identity);
+        }
+
+        function fillHole(idx, msg, fromUserId, identity) {
+            const timestamp = Date.now();
+            
+            holes[idx].content = msg;
+            holes[idx].identity = identity;
+            holes[idx].timestamp = timestamp;
+            holes[idx].userId = fromUserId;
+            
+            renderHoles();
+            startTimer(idx);
+        }
+
+        function startTimer(idx) {
+            if (holes[idx].interval) {
+                clearInterval(holes[idx].interval);
+            }
+            
+            holes[idx].interval = setInterval(() => {
+                const timerEl = document.getElementById('timer-' + idx);
+                const holeEl = document.getElementById('hole-' + idx);
+                
+                if (!timerEl || !holes[idx].timestamp) {
+                    clearInterval(holes[idx].interval);
+                    return;
+                }
+                
+                const remaining = parseFloat(getRemainingTime(holes[idx].timestamp));
+                timerEl.textContent = remaining.toFixed(1) + 's';
+                
+                if (remaining <= 0) {
+                    clearInterval(holes[idx].interval);
+                    holes[idx].interval = null;
+                    
+                    holeEl.classList.add('vanishing');
+                    
+                    setTimeout(() => {
+                        holes[idx].content = null;
+                        holes[idx].identity = null;
+                        holes[idx].timestamp = 0;
+                        holes[idx].userId = null;
+                        renderHoles();
+                    }, 600);
+                }
+            }, 100);
+        }
+
+        renderHoles();
+        document.getElementById('status').textContent = 'Ready';
+        
+        document.getElementById('shoutInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                shout();
+            }
+        });
+    </script>
+</body>
+</html>
+
+
